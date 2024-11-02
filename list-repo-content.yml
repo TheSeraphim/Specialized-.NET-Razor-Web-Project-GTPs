@@ -1,0 +1,54 @@
+name: List Repository Content Recursively
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  list-repo-content:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set Repository Parameters
+        id: setup
+        run: |
+          echo "Retrieving the latest commit SHA..."
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Commit SHA retrieved: $COMMIT_SHA"
+          
+          echo "Retrieving Tree SHA from Commit SHA..."
+          TREE_SHA=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/git/commits/$COMMIT_SHA" | jq -r '.tree.sha')
+          
+          echo "Tree SHA retrieved: $TREE_SHA"
+          
+          # Building the URL for the tree with recursive=1
+          STRUCTURE_URL="https://api.github.com/repos/${{ github.repository }}/git/trees/$TREE_SHA?recursive=1"
+          echo "Structure URL generated successfully: $STRUCTURE_URL"
+          
+          echo "::set-output name=commit_sha::$COMMIT_SHA"
+          echo "::set-output name=tree_sha::$TREE_SHA"
+          echo "::set-output name=structure_url::$STRUCTURE_URL"
+
+      - name: List Repository Content Recursively
+        run: |
+          echo "Requesting repository structure..."
+          STRUCTURE_URL="${{ steps.setup.outputs.structure_url }}"
+          
+          # Make recursive API call and display the content
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" "$STRUCTURE_URL")
+          
+          # Check if the response contains an error
+          if echo "$RESPONSE" | jq -e '.tree' > /dev/null; then
+            echo "Repository contents:"
+            echo "$RESPONSE" | jq -r '.tree[].path'
+          else
+            echo "Error fetching repository structure from GitHub API: $(echo $RESPONSE | jq -r '.message')"
+            exit 1
+          fi
