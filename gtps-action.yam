@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info:
+  title: GitHub Repository Content API
+  version: 1.0.0
+  description: API to trigger a GitHub action that lists the contents of a repository.
+
+servers:
+  - url: https://api.github.com
+
+paths:
+  /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches:
+    post:
+      operationId: triggerWorkflowDispatch
+      summary: Triggers a specific GitHub workflow to list repository contents
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema:
+            type: string
+          description: GitHub username or organization that owns the repository.
+        - in: path
+          name: repo
+          required: true
+          schema:
+            type: string
+          description: Name of the repository.
+        - in: path
+          name: workflow_id
+          required: true
+          schema:
+            type: string
+          description: The ID or filename of the workflow (e.g., "list-repo-content.yml").
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ref:
+                  type: string
+                  description: Branch or tag to run the workflow on (e.g., "main").
+      responses:
+        '204':
+          description: Workflow successfully triggered.
+        '404':
+          description: Workflow not found.
+        '401':
+          description: Invalid authentication.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
